@@ -53,6 +53,7 @@
             gap: 3px;
         }
 
+        /* 共通ボタンスタイル */
         button {
             padding: 6px 12px;
             border: 1px solid #ccc;
@@ -60,6 +61,7 @@
             cursor: pointer;
             border-radius: 4px;
             font-weight: bold;
+            transition: all 0.1s ease;
         }
 
         button:hover {
@@ -81,6 +83,18 @@
 
         button.reset-btn:hover {
             background: #ffccd1;
+        }
+
+        /* コピーボタン専用スタイル */
+        button.copy-btn {
+            padding: 4px 8px;
+            font-size: 12px;
+            background: #fdfdfd;
+        }
+
+        button.copy-btn:hover {
+            background: #e8f5e9;
+            border-color: #a5d6a7;
         }
 
         .grid {
@@ -112,17 +126,30 @@
             color: white;
         }
 
+        .output-block {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 15px;
+        }
+
+        .output-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        .output-header h3 {
+            margin: 0;
+            font-size: 15px;
+            color: #333;
+        }
+
         .output-area textarea {
             width: 100%;
             font-family: monospace;
             font-size: 14px;
-            margin-bottom: 15px;
-        }
-
-        h3 {
-            margin-top: 0;
-            font-size: 16px;
-            color: #333;
+            box-sizing: border-box;
         }
     </style>
 </head>
@@ -161,14 +188,31 @@
         <div id="grid" class="grid"></div>
 
         <div class="output-area" style="flex-grow: 1; max-width: 500px;">
-            <h3>1次元形式（ i * W + j ）</h3>
-            <textarea id="out1" rows="3"></textarea>
 
-            <h3>2次元形式（ 選択順の座標ペア ）</h3>
-            <textarea id="out2" rows="5"></textarea>
+            <div class="output-block">
+                <div class="output-header">
+                    <h3>1次元形式（ i * W + j ）</h3>
+                    <button class="copy-btn" onclick="copyText('out1', this)">📋 コピー</button>
+                </div>
+                <textarea id="out1" rows="3"></textarea>
+            </div>
 
-            <h3>グリッド形式（ . と # ）</h3>
-            <textarea id="out3" rows="10"></textarea>
+            <div class="output-block">
+                <div class="output-header">
+                    <h3>2次元形式（ 選択順の座標ペア ）</h3>
+                    <button class="copy-btn" onclick="copyText('out2', this)">📋 コピー</button>
+                </div>
+                <textarea id="out2" rows="5"></textarea>
+            </div>
+
+            <div class="output-block">
+                <div class="output-header">
+                    <h3>グリッド形式（ . と # ）</h3>
+                    <button class="copy-btn" onclick="copyText('out3', this)">📋 コピー</button>
+                </div>
+                <textarea id="out3" rows="10"></textarea>
+            </div>
+
         </div>
     </div>
 
@@ -196,6 +240,26 @@
                 redo();
             }
         });
+
+        function copyText(areaId, button) {
+            const textarea = document.getElementById(areaId);
+            navigator.clipboard.writeText(textarea.value).then(() => {
+                const originalText = button.innerHTML;
+                button.innerHTML = '✓ コピー完了！';
+                button.style.background = '#e8f5e9';
+                button.style.color = '#2e7d32';
+                button.style.borderColor = '#81c784';
+
+                setTimeout(() => {
+                    button.innerHTML = originalText;
+                    button.style.background = '';
+                    button.style.color = '';
+                    button.style.borderColor = '';
+                }, 1200);
+            }).catch(err => {
+                alert('コピーに失敗しました: ' + err);
+            });
+        }
 
         function saveHistory() {
             undoStack.push(selectedCells.map(cell => ({ r: cell.r, c: cell.c })));
@@ -302,11 +366,9 @@
                 }
             });
 
-            // 現在選択されている出力スタイル（cpp または raw）を取得
             const currentStyle = document.querySelector('input[name="outStyle"]:checked').value;
 
             if (currentStyle === 'cpp') {
-                // --- C++ Vector 形式 ---
                 let flat1D = selectedCells.map(s => s.r * C + s.c).join(', ');
                 document.getElementById('out1').value = `{${flat1D}};`;
 
@@ -326,7 +388,6 @@
                 document.getElementById('out3').value = gridStr;
 
             } else {
-                // --- 標準入出力形式 (RAW) ---
                 let flat1D = selectedCells.map(s => s.r * C + s.c).join(' ');
                 document.getElementById('out1').value = flat1D;
 
