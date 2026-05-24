@@ -97,6 +97,31 @@
             border-color: #a5d6a7;
         }
 
+        /* グリッドとレイヤーの配置エリア */
+        .grid-area {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .layer-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: #fff;
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid #ddd;
+            width: max-content;
+        }
+
+        .shortcut-hint {
+            font-size: 11px;
+            color: #666;
+            font-weight: normal;
+            margin-left: 2px;
+        }
+
         .grid {
             display: grid;
             gap: 1px;
@@ -121,6 +146,12 @@
             background: #e0e0e0;
         }
 
+        /* 他のレイヤーで選択されたマスのスタイル */
+        .cell.other-layer {
+            background: #d3d3d3;
+        }
+
+        /* 現在のレイヤーで選択されたマスのスタイル（優先度高） */
         .cell.selected {
             background: #4CAF50;
             color: white;
@@ -150,6 +181,7 @@
             font-family: monospace;
             font-size: 14px;
             box-sizing: border-box;
+            white-space: pre;
         }
     </style>
 </head>
@@ -163,14 +195,14 @@
         <div class="control-item">
             列数(W): <input type="number" id="cols" value="5" min="1" max="50" style="width:50px;">
         </div>
-        <button onclick="buildGrid()" class="reset-btn">グリッドをリセット</button>
+        <button onclick="buildGrid()" class="reset-btn">リセット</button>
 
         <div class="control-item" style="border-left: 2px solid #ccc; padding-left: 15px;">
-            <button id="undoBtn" onclick="undo()" title="Ctrl+Z">↩ 元に戻す</button>
-            <button id="redoBtn" onclick="redo()" title="Ctrl+Y">↪ やり直し</button>
+            <button id="undoBtn" onclick="undo()" title="Ctrl+Z">↩ 戻る</button>
+            <button id="redoBtn" onclick="redo()" title="Ctrl+Y">↪ 進む</button>
         </div>
 
-        <div class="control-item style-selector">
+        <div class="control-item style-selector" style="border-left: 2px solid #ccc; padding-left: 15px;">
             出力スタイル:
             <label><input type="radio" name="outStyle" value="cpp" checked onclick="updateOutputs()"> C++形式</label>
             <label><input type="radio" name="outStyle" value="raw" onclick="updateOutputs()"> 標準入出力形式</label>
@@ -178,14 +210,24 @@
 
         <div class="control-item"
             style="background: #e0e0e0; padding: 5px 10px; border-radius: 4px; margin-left: auto;">
-            マス目サイズ:
+            マス目:
             <input type="range" id="sizeSlider" min="15" max="80" value="35" oninput="updateCellSize(this.value)">
             <span id="sizeValue" style="min-width: 40px; font-family: monospace;">35px</span>
         </div>
     </div>
 
     <div class="container">
-        <div id="grid" class="grid"></div>
+        <div class="grid-area">
+            <div class="layer-controls">
+                <span style="font-weight: bold; font-size: 14px;">レイヤー選択:</span>
+                <select id="layerSelect" onchange="changeLayer()" title="レイヤー切り替え ([ ] キー)"
+                    style="padding: 4px; border-radius: 4px; font-weight: bold;"></select>
+                <button onclick="addLayer()" title="レイヤーを追加 (Alt + A)">+</button>
+                <button id="removeLayerBtn" onclick="removeLayer()" title="現在のレイヤーを削除 (Alt + D)"
+                    style="color: #c02020;">-</button>
+            </div>
+            <div id="grid" class="grid"></div>
+        </div>
 
         <div class="output-area" style="flex-grow: 1; max-width: 500px;">
 
@@ -194,7 +236,7 @@
                     <h3>1次元形式（ i * W + j ）</h3>
                     <button class="copy-btn" onclick="copyText('out1', this)">📋 コピー</button>
                 </div>
-                <textarea id="out1" rows="3"></textarea>
+                <textarea id="out1" rows="5"></textarea>
             </div>
 
             <div class="output-block">
@@ -202,7 +244,7 @@
                     <h3>2次元形式（ 選択順の座標ペア ）</h3>
                     <button class="copy-btn" onclick="copyText('out2', this)">📋 コピー</button>
                 </div>
-                <textarea id="out2" rows="5"></textarea>
+                <textarea id="out2" rows="7"></textarea>
             </div>
 
             <div class="output-block">
@@ -217,7 +259,8 @@
     </div>
 
     <script>
-        let selectedCells = [];
+        let layers = [[]];
+        let currentLayer = 0;
         let R = 5, C = 5;
 
         let isDragging = false;
@@ -230,14 +273,45 @@
             isDragging = false;
         });
 
+        // ショートカットキーのリスナー
         window.addEventListener('keydown', (e) => {
             const isCtrl = e.ctrlKey || e.metaKey;
+            const isAlt = e.altKey;
+
+            // Undo / Redo
             if (isCtrl && e.key.toLowerCase() === 'z') {
                 e.preventDefault();
                 undo();
             } else if (isCtrl && e.key.toLowerCase() === 'y') {
                 e.preventDefault();
                 redo();
+            }
+
+            // レイヤー追加 (Alt + A)
+            if (isAlt && e.key.toLowerCase() === 'a') {
+                e.preventDefault();
+                addLayer();
+            }
+            // レイヤー削除 (Alt + D)
+            else if (isAlt && e.key.toLowerCase() === 'd') {
+                e.preventDefault();
+                removeLayer();
+            }
+            // レイヤー切り替え：前へ ( [ キー )
+            else if (e.key === '[') {
+                if (layers.length > 1) {
+                    currentLayer = (currentLayer - 1 + layers.length) % layers.length;
+                    document.getElementById('layerSelect').value = currentLayer;
+                    updateOutputs();
+                }
+            }
+            // レイヤー切り替え：次へ ( ] キー )
+            else if (e.key === ']') {
+                if (layers.length > 1) {
+                    currentLayer = (currentLayer + 1) % layers.length;
+                    document.getElementById('layerSelect').value = currentLayer;
+                    updateOutputs();
+                }
             }
         });
 
@@ -261,8 +335,12 @@
             });
         }
 
+        // --- 履歴機能 ---
         function saveHistory() {
-            undoStack.push(selectedCells.map(cell => ({ r: cell.r, c: cell.c })));
+            undoStack.push({
+                layers: JSON.parse(JSON.stringify(layers)),
+                currentLayer: currentLayer
+            });
             if (undoStack.length > 50) {
                 undoStack.shift();
             }
@@ -272,16 +350,28 @@
 
         function undo() {
             if (undoStack.length === 0) return;
-            redoStack.push(selectedCells.map(cell => ({ r: cell.r, c: cell.c })));
-            selectedCells = undoStack.pop();
+            redoStack.push({
+                layers: JSON.parse(JSON.stringify(layers)),
+                currentLayer: currentLayer
+            });
+            const state = undoStack.pop();
+            layers = state.layers;
+            currentLayer = state.currentLayer;
+            updateLayerUI();
             updateOutputs();
             updateHistoryButtons();
         }
 
         function redo() {
             if (redoStack.length === 0) return;
-            undoStack.push(selectedCells.map(cell => ({ r: cell.r, c: cell.c })));
-            selectedCells = redoStack.pop();
+            undoStack.push({
+                layers: JSON.parse(JSON.stringify(layers)),
+                currentLayer: currentLayer
+            });
+            const state = redoStack.pop();
+            layers = state.layers;
+            currentLayer = state.currentLayer;
+            updateLayerUI();
             updateOutputs();
             updateHistoryButtons();
         }
@@ -291,12 +381,52 @@
             document.getElementById('redoBtn').disabled = (redoStack.length === 0);
         }
 
+        // --- レイヤー管理機能 ---
+        function updateLayerUI() {
+            const select = document.getElementById('layerSelect');
+            select.innerHTML = '';
+            layers.forEach((_, i) => {
+                let opt = document.createElement('option');
+                opt.value = i;
+                opt.innerText = `Layer ${i + 1}`;
+                if (i === currentLayer) opt.selected = true;
+                select.appendChild(opt);
+            });
+            document.getElementById('removeLayerBtn').disabled = (layers.length <= 1);
+        }
+
+        function changeLayer() {
+            currentLayer = parseInt(document.getElementById('layerSelect').value);
+            updateOutputs();
+        }
+
+        function addLayer() {
+            saveHistory();
+            layers.push([]);
+            currentLayer = layers.length - 1;
+            updateLayerUI();
+            updateOutputs();
+        }
+
+        function removeLayer() {
+            if (layers.length <= 1) return;
+            saveHistory();
+            layers.splice(currentLayer, 1);
+            currentLayer = Math.min(currentLayer, layers.length - 1);
+            updateLayerUI();
+            updateOutputs();
+        }
+
+        // --- グリッド構築 ---
         function buildGrid() {
             R = parseInt(document.getElementById('rows').value);
             C = parseInt(document.getElementById('cols').value);
-            selectedCells = [];
+            layers = [[]];
+            currentLayer = 0;
             undoStack = [];
             redoStack = [];
+
+            updateLayerUI();
 
             const grid = document.getElementById('grid');
             grid.style.gridTemplateColumns = `repeat(${C}, var(--cell-size))`;
@@ -313,13 +443,13 @@
                         isDragging = true;
                         saveHistory();
 
-                        let idx = selectedCells.findIndex(x => x.r === r && x.c === c);
+                        let idx = layers[currentLayer].findIndex(x => x.r === r && x.c === c);
                         if (idx > -1) {
                             drawMode = 'deselect';
-                            selectedCells.splice(idx, 1);
+                            layers[currentLayer].splice(idx, 1);
                         } else {
                             drawMode = 'select';
-                            selectedCells.push({ r, c });
+                            layers[currentLayer].push({ r, c });
                         }
                         updateOutputs();
                     };
@@ -327,13 +457,13 @@
                     cell.onmouseenter = () => {
                         if (!isDragging) return;
 
-                        let idx = selectedCells.findIndex(x => x.r === r && x.c === c);
+                        let idx = layers[currentLayer].findIndex(x => x.r === r && x.c === c);
 
                         if (drawMode === 'select' && idx === -1) {
-                            selectedCells.push({ r, c });
+                            layers[currentLayer].push({ r, c });
                             updateOutputs();
                         } else if (drawMode === 'deselect' && idx > -1) {
-                            selectedCells.splice(idx, 1);
+                            layers[currentLayer].splice(idx, 1);
                             updateOutputs();
                         }
                     };
@@ -350,15 +480,29 @@
             document.getElementById('sizeValue').innerText = `${px}px`;
         }
 
+        // --- 描画・出力更新 ---
         function updateOutputs() {
             const cells = document.getElementById('grid').children;
 
+            // リセット
             for (let i = 0; i < cells.length; i++) {
                 cells[i].className = 'cell';
                 cells[i].innerText = '';
             }
 
-            selectedCells.forEach((s, index) => {
+            // 他のレイヤーの描画 (薄い灰色)
+            for (let l = 0; l < layers.length; l++) {
+                if (l === currentLayer) continue;
+                layers[l].forEach(s => {
+                    let cellNode = cells[s.r * C + s.c];
+                    if (cellNode) {
+                        cellNode.classList.add('other-layer');
+                    }
+                });
+            }
+
+            // 現在のレイヤーの描画 (緑色)
+            layers[currentLayer].forEach((s, index) => {
                 let cellNode = cells[s.r * C + s.c];
                 if (cellNode) {
                     cellNode.className = 'cell selected';
@@ -367,19 +511,29 @@
             });
 
             const currentStyle = document.querySelector('input[name="outStyle"]:checked').value;
+            const isMultiLayer = layers.length > 1;
 
             if (currentStyle === 'cpp') {
-                let flat1D = selectedCells.map(s => s.r * C + s.c).join(', ');
-                document.getElementById('out1').value = `{${flat1D}};`;
+                if (isMultiLayer) {
+                    let flat1Ds = layers.map(layer => "{" + layer.map(s => s.r * C + s.c).join(', ') + "}").join(', ');
+                    document.getElementById('out1').value = `{${flat1Ds}};`;
 
-                let pairCoords = selectedCells.map(s => `{${s.r}, ${s.c}}`).join(', ');
-                document.getElementById('out2').value = `{${pairCoords}};`;
+                    let pairCoords = layers.map(layer => "{" + layer.map(s => `{${s.r}, ${s.c}}`).join(', ') + "}").join(', ');
+                    document.getElementById('out2').value = `{${pairCoords}};`;
+                } else {
+                    let flat1D = layers[0].map(s => s.r * C + s.c).join(', ');
+                    document.getElementById('out1').value = `{${flat1D}};`;
 
+                    let pairCoords = layers[0].map(s => `{${s.r}, ${s.c}}`).join(', ');
+                    document.getElementById('out2').value = `{${pairCoords}};`;
+                }
+
+                // グリッド形式 (和集合)
                 let gridStr = "{\n";
                 for (let r = 0; r < R; r++) {
                     let rowStr = "";
                     for (let c = 0; c < C; c++) {
-                        let isSelected = selectedCells.some(x => x.r === r && x.c === c);
+                        let isSelected = layers.some(layer => layer.some(x => x.r === r && x.c === c));
                         rowStr += isSelected ? "#" : ".";
                     }
                     gridStr += `  "${rowStr}",\n`;
@@ -388,17 +542,32 @@
                 document.getElementById('out3').value = gridStr;
 
             } else {
-                let flat1D = selectedCells.map(s => s.r * C + s.c).join(' ');
-                document.getElementById('out1').value = flat1D;
+                if (isMultiLayer) {
+                    let out1 = [];
+                    let out2 = [];
+                    layers.forEach(layer => {
+                        out1.push(layer.length);
+                        out1.push(layer.map(s => s.r * C + s.c).join(' '));
 
-                let pairCoords = selectedCells.map(s => `${s.r} ${s.c}`).join('\n');
-                document.getElementById('out2').value = pairCoords;
+                        out2.push(layer.length);
+                        out2.push(layer.map(s => `${s.r} ${s.c}`).join('\n'));
+                    });
+                    document.getElementById('out1').value = out1.join('\n');
+                    document.getElementById('out2').value = out2.join('\n');
+                } else {
+                    let flat1D = layers[0].map(s => s.r * C + s.c).join(' ');
+                    document.getElementById('out1').value = flat1D;
 
+                    let pairCoords = layers[0].map(s => `${s.r} ${s.c}`).join('\n');
+                    document.getElementById('out2').value = pairCoords;
+                }
+
+                // グリッド形式 (和集合)
                 let gridRows = [];
                 for (let r = 0; r < R; r++) {
                     let rowStr = "";
                     for (let c = 0; c < C; c++) {
-                        let isSelected = selectedCells.some(x => x.r === r && x.c === c);
+                        let isSelected = layers.some(layer => layer.some(x => x.r === r && x.c === c));
                         rowStr += isSelected ? "#" : ".";
                     }
                     gridRows.push(rowStr);
@@ -410,13 +579,13 @@
         buildGrid();
     </script>
 
-<footer
-    style="text-align: center; margin-top: 40px; padding: 10px; font-size: 13px; border-top: 1px solid #ddd; user-select: text;">
-    <a href="https://github.com/mya-3/grid-exporter" target="_blank" rel="noopener noreferrer"
-        style="color: #0366d6; text-decoration: none; font-weight: bold;">
-        ソースコード・使い方 (GitHub) ↗
-    </a>
-</footer>
+    <footer
+        style="text-align: center; margin-top: 40px; padding: 10px; font-size: 13px; border-top: 1px solid #ddd; user-select: text;">
+        <a href="https://github.com/mya-3/grid-exporter" target="_blank" rel="noopener noreferrer"
+            style="color: #0366d6; text-decoration: none; font-weight: bold;">
+            ソースコード・使い方 (GitHub) ↗
+        </a>
+    </footer>
 
 </body>
 
