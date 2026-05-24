@@ -2,6 +2,8 @@
 
 グリッドの選択と出力を行うWebツールです。
 
+<img width="540" alt="grid_exporter" src="https://github.com/user-attachments/assets/7582d3dc-94e9-415a-8060-0cb84d95590e" />
+
 ## 主な機能
 
 - グリッドの直感的な編集
