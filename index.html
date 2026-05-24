@@ -205,6 +205,7 @@
         <div class="control-item style-selector">
             出力スタイル:
             <label><input type="radio" name="outStyle" value="cpp" checked onclick="updateOutputs()"> C++形式</label>
+            <label><input type="radio" name="outStyle" value="py" onclick="updateOutputs()"> Python形式</label>
             <label><input type="radio" name="outStyle" value="raw" onclick="updateOutputs()"> 標準入力形式</label>
         </div>
 
@@ -539,6 +540,25 @@
                     gridStr += `  "${rowStr}",\n`;
                 }
                 gridStr += "};";
+                document.getElementById('out3').value = gridStr;
+
+            } else if (currentStyle === 'py') {
+                let flat1D = selectedCells.map(s => s.r * C + s.c).join(', ');
+                document.getElementById('out1').value = `[${flat1D}]`;
+
+                let pairCoords = selectedCells.map(s => `[${s.r}, ${s.c}]`).join(', ');
+                document.getElementById('out2').value = `[${pairCoords}]`;
+
+                let gridStr = "[\n";
+                for (let r = 0; r < R; r++) {
+                    let rowStr = "";
+                    for (let c = 0; c < C; c++) {
+                        let isSelected = selectedCells.some(x => x.r === r && x.c === c);
+                        rowStr += isSelected ? "#" : ".";
+                    }
+                    gridStr += `  "${rowStr}",\n`;
+                }
+                gridStr += "]";
                 document.getElementById('out3').value = gridStr;
 
             } else {
