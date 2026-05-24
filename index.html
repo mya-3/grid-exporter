@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <title>C++用 グリッド選択ツール</title>
+    <style>
+        :root {
+            --cell-size: 35px;
+        }
+
+        body {
+            font-family: sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+            user-select: none;
+        }
+
+        .container {
+            display: flex;
+            gap: 30px;
+            align-items: flex-start;
+        }
+
+        .controls {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .control-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        /* ボタンの共通スタイル */
+        button {
+            padding: 6px 12px;
+            border: 1px solid #ccc;
+            background: #fff;
+            cursor: pointer;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+
+        button:hover {
+            background: #f0f0f0;
+        }
+
+        button:disabled {
+            background: #e0e0e0;
+            color: #999;
+            cursor: not-allowed;
+            border-color: #d0d0d0;
+        }
+
+        button.reset-btn {
+            background: #ffdde0;
+            border-color: #ffb3b8;
+            color: #c02020;
+        }
+
+        button.reset-btn:hover {
+            background: #ffccd1;
+        }
+
+        .grid {
+            display: grid;
+            gap: 1px;
+            background: #ccc;
+            width: max-content;
+            border: 1px solid #ccc;
+        }
+
+        .cell {
+            width: var(--cell-size);
+            height: var(--cell-size);
+            background: white;
+            text-align: center;
+            line-height: var(--cell-size);
+            cursor: pointer;
+            font-size: calc(var(--cell-size) * 0.4);
+            font-weight: bold;
+            box-sizing: border-box;
+        }
+
+        .cell:hover {
+            background: #e0e0e0;
+        }
+
+        .cell.selected {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .output-area textarea {
+            width: 100%;
+            font-family: monospace;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+
+        h3 {
+            margin-top: 0;
+            font-size: 16px;
+            color: #333;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="controls">
+        <div class="control-item">
+            行数(H): <input type="number" id="rows" value="5" min="1" max="50" style="width:50px;">
+        </div>
+        <div class="control-item">
+            列数(W): <input type="number" id="cols" value="5" min="1" max="50" style="width:50px;">
+        </div>
+        <button onclick="buildGrid()" class="reset-btn">グリッドをリセット</button>
+
+        <div class="control-item" style="border-left: 2px solid #ccc; padding-left: 15px;">
+            <button id="undoBtn" onclick="undo()" title="Ctrl+Z">↩ 元に戻す</button>
+            <button id="redoBtn" onclick="redo()" title="Ctrl+Y">↪ やり直し</button>
+        </div>
+
+        <div class="control-item"
+            style="background: #e0e0e0; padding: 5px 10px; border-radius: 4px; margin-left: auto;">
+            マス目サイズ:
+            <input type="range" id="sizeSlider" min="15" max="80" value="35" oninput="updateCellSize(this.value)">
+            <span id="sizeValue" style="min-width: 40px; font-family: monospace;">35px</span>
+        </div>
+    </div>
+
+    <div class="container">
+        <div id="grid" class="grid"></div>
+
+        <div class="output-area" style="flex-grow: 1; max-width: 500px;">
+            <h3>1次元形式（ i * W + j ）</h3>
+            <textarea id="out1" rows="3"></textarea>
+
+            <h3>2次元形式（ 選択順の座標ペア ）</h3>
+            <textarea id="out2" rows="3"></textarea>
+
+            <h3>グリッド形式（ . と # ）</h3>
+            <textarea id="out3" rows="10"></textarea>
+        </div>
+    </div>
+
+    <script>
+        let selectedCells = [];
+        let R = 5, C = 5;
+
+        let isDragging = false;
+        let drawMode = 'select';
+
+        // 履歴管理用のスタック
+        let undoStack = [];
+        let redoStack = [];
+
+        // グリッドの外でマウスが離されてもドラッグを終了
+        window.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
+
+        // ショートカットキー (Ctrl+Z, Ctrl+Y) の監視
+        window.addEventListener('keydown', (e) => {
+            const isCtrl = e.ctrlKey || e.metaKey; // MacのCommandキーも考慮
+            if (isCtrl && e.key.toLowerCase() === 'z') {
+                e.preventDefault();
+                undo();
+            } else if (isCtrl && e.key.toLowerCase() === 'y') {
+                e.preventDefault();
+                redo();
+            }
+        });
+
+        // 現在の状態を履歴に保存する関数
+        function saveHistory() {
+            // 現在の配列の状態を完全に複製してUndoスタックへ（最大50件）
+            undoStack.push(selectedCells.map(cell => ({ r: cell.r, c: cell.c })));
+            if (undoStack.length > 50) {
+                undoStack.shift();
+            }
+            // 新しい操作が行われたので、Redo（やり直し）の履歴はリセット
+            redoStack = [];
+            updateHistoryButtons();
+        }
+
+        function undo() {
+            if (undoStack.length === 0) return;
+            // 現在の状態をRedo用に保存
+            redoStack.push(selectedCells.map(cell => ({ r: cell.r, c: cell.c })));
+            // Undoスタックから1つ戻す
+            selectedCells = undoStack.pop();
+            updateOutputs();
+            updateHistoryButtons();
+        }
+
+        function redo() {
+            if (redoStack.length === 0) return;
+            // 現在の状態をUndo用に保存
+            undoStack.push(selectedCells.map(cell => ({ r: cell.r, c: cell.c })));
+            // Redoスタックから1つ進める
+            selectedCells = redoStack.pop();
+            updateOutputs();
+            updateHistoryButtons();
+        }
+
+        // ボタンの有効・無効状態を更新
+        function updateHistoryButtons() {
+            document.getElementById('undoBtn').disabled = (undoStack.length === 0);
+            document.getElementById('redoBtn').disabled = (redoStack.length === 0);
+        }
+
+        function buildGrid() {
+            R = parseInt(document.getElementById('rows').value);
+            C = parseInt(document.getElementById('cols').value);
+            selectedCells = [];
+            undoStack = [];
+            redoStack = [];
+
+            const grid = document.getElementById('grid');
+            grid.style.gridTemplateColumns = `repeat(${C}, var(--cell-size))`;
+            grid.style.gridTemplateRows = `repeat(${R}, var(--cell-size))`;
+            grid.innerHTML = '';
+
+            for (let r = 0; r < R; r++) {
+                for (let c = 0; c < C; c++) {
+                    let cell = document.createElement('div');
+                    cell.className = 'cell';
+
+                    cell.onmousedown = (e) => {
+                        e.preventDefault();
+                        isDragging = true;
+
+                        // 操作が確定する前に、現在の状態を履歴に記録
+                        saveHistory();
+
+                        let idx = selectedCells.findIndex(x => x.r === r && x.c === c);
+                        if (idx > -1) {
+                            drawMode = 'deselect';
+                            selectedCells.splice(idx, 1);
+                        } else {
+                            drawMode = 'select';
+                            selectedCells.push({ r, c });
+                        }
+                        updateOutputs();
+                    };
+
+                    cell.onmouseenter = () => {
+                        if (!isDragging) return;
+
+                        let idx = selectedCells.findIndex(x => x.r === r && x.c === c);
+
+                        if (drawMode === 'select' && idx === -1) {
+                            selectedCells.push({ r, c });
+                            updateOutputs();
+                        } else if (drawMode === 'deselect' && idx > -1) {
+                            selectedCells.splice(idx, 1);
+                            updateOutputs();
+                        }
+                    };
+
+                    grid.appendChild(cell);
+                }
+            }
+            updateOutputs();
+            updateHistoryButtons();
+        }
+
+        function updateCellSize(px) {
+            document.documentElement.style.setProperty('--cell-size', `${px}px`);
+            document.getElementById('sizeValue').innerText = `${px}px`;
+        }
+
+        function updateOutputs() {
+            const cells = document.getElementById('grid').children;
+
+            for (let i = 0; i < cells.length; i++) {
+                cells[i].className = 'cell';
+                cells[i].innerText = '';
+            }
+
+            selectedCells.forEach((s, index) => {
+                let cellNode = cells[s.r * C + s.c];
+                if (cellNode) {
+                    cellNode.className = 'cell selected';
+                    cellNode.innerText = index + 1;
+                }
+            });
+
+            let flat1D = selectedCells.map(s => s.r * C + s.c).join(', ');
+            document.getElementById('out1').value = `{${flat1D}};`;
+
+            let pairCoords = selectedCells.map(s => `{${s.r}, ${s.c}}`).join(', ');
+            document.getElementById('out2').value = `{${pairCoords}};`;
+
+            let gridStr = "{\n";
+            for (let r = 0; r < R; r++) {
+                let rowStr = "";
+                for (let c = 0; c < C; c++) {
+                    let isSelected = selectedCells.some(x => x.r === r && x.c === c);
+                    rowStr += isSelected ? "#" : ".";
+                }
+                gridStr += `  "${rowStr}",\n`;
+            }
+            gridStr += "};";
+            document.getElementById('out3').value = gridStr;
+        }
+
+        buildGrid();
+    </script>
+
+</body>
+
+</html>
