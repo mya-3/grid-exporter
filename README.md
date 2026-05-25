@@ -2,7 +2,7 @@
 
 グリッドの選択と出力を行うWebツールです。
 
-<img width="530" alt="grid_exporter_layer" src="https://github.com/user-attachments/assets/babaa797-aecf-474d-b504-00aa3b9e0cec" />
+<img width="530" alt="grid_exporter_language_pulldown" src="https://github.com/user-attachments/assets/6d65bf1b-95f1-4e58-919e-5e7ec66c29a1" />
 
 ## 主な機能
 
@@ -12,8 +12,9 @@
 - レイヤーの追加削除
   - 他のレイヤーでの選択は薄い灰色で表示
 - 複数形式での出力
-  - C++プログラム等への埋め込み形式・標準入力形式
-  - 1次元換算座標・2次元座標・グリッド文字列
+  - プログラムへの埋め込み形式 / 標準入力形式
+    - C++ / Python / Rust
+  - 1次元換算座標 / 2次元座標 / グリッド文字列
 
 ## 使い方
 
@@ -31,5 +32,5 @@
 
 ## その他
 
-- 選択データを外部へ送信する処理は行っていません。
+- 選択データを外部へ送信する処理は行っていません。  
   全ての処理はブラウザ内で完結します。

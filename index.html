@@ -43,14 +43,24 @@
             border: 1px solid #b2ebf2;
             font-weight: bold;
             display: flex;
-            gap: 10px;
+            gap: 15px;
         }
 
         .style-selector label {
             cursor: pointer;
             display: flex;
             align-items: center;
-            gap: 3px;
+            gap: 5px;
+        }
+
+        .style-selector select {
+            border: 1px solid #90caf9;
+            border-radius: 3px;
+            padding: 2px 5px;
+            font-weight: bold;
+            background: #fff;
+            cursor: pointer;
+            font-size: 14px;
         }
 
         /* 共通ボタンスタイル */
@@ -104,22 +114,33 @@
             gap: 10px;
         }
 
+        /* グリッド上部の操作パネル（横並び用） */
+        .grid-action-panel {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .history-controls {
+            display: flex;
+            gap: 5px;
+            width: max-content;
+        }
+
+        .history-controls button {
+            padding: 5px 12px;
+            font-size: 13px;
+        }
+
         .layer-controls {
             display: flex;
             align-items: center;
             gap: 8px;
             background: #fff;
-            padding: 8px 12px;
+            padding: 5px 12px;
             border-radius: 6px;
             border: 1px solid #ddd;
             width: max-content;
-        }
-
-        .shortcut-hint {
-            font-size: 11px;
-            color: #666;
-            font-weight: normal;
-            margin-left: 2px;
         }
 
         .grid {
@@ -197,20 +218,9 @@
         </div>
         <button onclick="buildGrid()" class="reset-btn">リセット</button>
 
-        <div class="control-item" style="border-left: 2px solid #ccc; padding-left: 15px;">
-            <button id="undoBtn" onclick="undo()" title="Ctrl+Z">↩ 戻る</button>
-            <button id="redoBtn" onclick="redo()" title="Ctrl+Y">↪ 進む</button>
-        </div>
+        <div style="border-left: 1px solid #ccc; height: 24px; margin: 0 5px;"></div>
 
-        <div class="control-item style-selector">
-            出力スタイル:
-            <label><input type="radio" name="outStyle" value="cpp" checked onclick="updateOutputs()"> C++形式</label>
-            <label><input type="radio" name="outStyle" value="py" onclick="updateOutputs()"> Python形式</label>
-            <label><input type="radio" name="outStyle" value="raw" onclick="updateOutputs()"> 標準入力形式</label>
-        </div>
-
-        <div class="control-item"
-            style="background: #e0e0e0; padding: 5px 10px; border-radius: 4px; margin-left: auto;">
+        <div class="control-item" style="background: #e0e0e0; padding: 5px 10px; border-radius: 4px;">
             マス目:
             <input type="range" id="sizeSlider" min="15" max="80" value="35" oninput="updateCellSize(this.value)">
             <span id="sizeValue" style="min-width: 40px; font-family: monospace;">35px</span>
@@ -219,18 +229,39 @@
 
     <div class="container">
         <div class="grid-area">
-            <div class="layer-controls">
-                <span style="font-weight: bold; font-size: 14px;">レイヤー選択:</span>
-                <select id="layerSelect" onchange="changeLayer()" title="レイヤー切り替え ([ ] キー)"
-                    style="padding: 4px; border-radius: 4px; font-weight: bold;"></select>
-                <button onclick="addLayer()" title="レイヤーを追加 (Alt + A)">+</button>
-                <button id="removeLayerBtn" onclick="removeLayer()" title="現在のレイヤーを削除 (Alt + D)"
-                    style="color: #c02020;">-</button>
+            <div class="grid-action-panel">
+                <div class="history-controls">
+                    <button id="undoBtn" onclick="undo()" title="Ctrl+Z">↩ 戻る</button>
+                    <button id="redoBtn" onclick="redo()" title="Ctrl+Y">↪ 進む</button>
+                </div>
+
+                <div class="layer-controls">
+                    <span style="font-weight: bold; font-size: 14px;">レイヤー選択:</span>
+                    <select id="layerSelect" onchange="changeLayer()" title="レイヤー切り替え ([ ] キー)"
+                        style="padding: 4px; border-radius: 4px; font-weight: bold;"></select>
+                    <button onclick="addLayer()" title="レイヤーを追加 (Alt + A)">+</button>
+                    <button id="removeLayerBtn" onclick="removeLayer()" title="現在のレイヤーを削除 (Alt + D)"
+                        style="color: #c02020;">-</button>
+                </div>
             </div>
+
             <div id="grid" class="grid"></div>
         </div>
 
         <div class="output-area" style="flex-grow: 1; max-width: 500px;">
+            <div class="control-item style-selector" style="margin-bottom: 15px; width: max-content;">
+                出力スタイル:
+                <label>
+                    <input type="radio" name="outStyle" value="code" checked onclick="updateOutputs()">
+                    <select id="codeLang"
+                        onchange="document.querySelector('input[value=\'code\']').checked = true; updateOutputs()">
+                        <option value="cpp">C++形式</option>
+                        <option value="py">Python形式</option>
+                        <option value="rust">Rust形式</option>
+                    </select>
+                </label>
+                <label><input type="radio" name="outStyle" value="raw" onclick="updateOutputs()"> 標準入力形式</label>
+            </div>
 
             <div class="output-block">
                 <div class="output-header">
@@ -511,7 +542,10 @@
                 }
             });
 
-            const currentStyle = document.querySelector('input[name="outStyle"]:checked').value;
+            // 選択されているスタイルを判定
+            let styleRadio = document.querySelector('input[name="outStyle"]:checked');
+            let currentStyle = styleRadio.value === 'code' ? document.getElementById('codeLang').value : 'raw';
+
             const isMultiLayer = layers.length > 1;
 
             if (currentStyle === 'cpp') {
@@ -570,7 +604,36 @@
                 gridStr += "]";
                 document.getElementById('out3').value = gridStr;
 
+            } else if (currentStyle === 'rust') {
+                if (isMultiLayer) {
+                    let flat1Ds = layers.map(layer => "vec![" + layer.map(s => s.r * C + s.c).join(', ') + "]").join(', ');
+                    document.getElementById('out1').value = `vec![${flat1Ds}];`;
+
+                    let pairCoords = layers.map(layer => "vec![" + layer.map(s => `(${s.r}, ${s.c})`).join(', ') + "]").join(', ');
+                    document.getElementById('out2').value = `vec![${pairCoords}];`;
+                } else {
+                    let flat1D = layers[0].map(s => s.r * C + s.c).join(', ');
+                    document.getElementById('out1').value = `vec![${flat1D}];`;
+
+                    let pairCoords = layers[0].map(s => `(${s.r}, ${s.c})`).join(', ');
+                    document.getElementById('out2').value = `vec![${pairCoords}];`;
+                }
+
+                // グリッド形式 (和集合)
+                let gridStr = "vec![\n";
+                for (let r = 0; r < R; r++) {
+                    let rowStr = "";
+                    for (let c = 0; c < C; c++) {
+                        let isSelected = layers.some(layer => layer.some(x => x.r === r && x.c === c));
+                        rowStr += isSelected ? "#" : ".";
+                    }
+                    gridStr += `  "${rowStr}",\n`;
+                }
+                gridStr += "];";
+                document.getElementById('out3').value = gridStr;
+
             } else {
+                // 標準入力形式 (raw)
                 if (isMultiLayer) {
                     let out1 = [];
                     let out2 = [];
