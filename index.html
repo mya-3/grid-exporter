@@ -43,14 +43,25 @@
             border: 1px solid #b2ebf2;
             font-weight: bold;
             display: flex;
-            gap: 10px;
+            gap: 15px;
         }
 
         .style-selector label {
             cursor: pointer;
             display: flex;
             align-items: center;
-            gap: 3px;
+            gap: 5px;
+        }
+
+        /* 言語選択はプルダウンで */
+        .style-selector select {
+            border: 1px solid #90caf9;
+            border-radius: 3px;
+            padding: 2px 5px;
+            font-weight: bold;
+            background: #fff;
+            cursor: pointer;
+            font-size: 14px;
         }
 
         /* 共通ボタンスタイル */
@@ -204,8 +215,15 @@
 
         <div class="control-item style-selector">
             出力スタイル:
-            <label><input type="radio" name="outStyle" value="cpp" checked onclick="updateOutputs()"> C++形式</label>
-            <label><input type="radio" name="outStyle" value="py" onclick="updateOutputs()"> Python形式</label>
+            <label>
+                <input type="radio" name="outStyle" value="code" checked onclick="updateOutputs()">
+                <select id="codeLang"
+                    onchange="document.querySelector('input[value=\'code\']').checked = true; updateOutputs()">
+                    <option value="cpp">C++形式</option>
+                    <option value="py">Python形式</option>
+                    <option value="rust">Rust形式</option>
+                </select>
+            </label>
             <label><input type="radio" name="outStyle" value="raw" onclick="updateOutputs()"> 標準入力形式</label>
         </div>
 
@@ -511,7 +529,10 @@
                 }
             });
 
-            const currentStyle = document.querySelector('input[name="outStyle"]:checked').value;
+            // 選択されているスタイルを判定
+            let styleRadio = document.querySelector('input[name="outStyle"]:checked');
+            let currentStyle = styleRadio.value === 'code' ? document.getElementById('codeLang').value : 'raw';
+
             const isMultiLayer = layers.length > 1;
 
             if (currentStyle === 'cpp') {
@@ -570,7 +591,36 @@
                 gridStr += "]";
                 document.getElementById('out3').value = gridStr;
 
+            } else if (currentStyle === 'rust') {
+                if (isMultiLayer) {
+                    let flat1Ds = layers.map(layer => "vec![" + layer.map(s => s.r * C + s.c).join(', ') + "]").join(', ');
+                    document.getElementById('out1').value = `vec![${flat1Ds}];`;
+
+                    let pairCoords = layers.map(layer => "vec![" + layer.map(s => `(${s.r}, ${s.c})`).join(', ') + "]").join(', ');
+                    document.getElementById('out2').value = `vec![${pairCoords}];`;
+                } else {
+                    let flat1D = layers[0].map(s => s.r * C + s.c).join(', ');
+                    document.getElementById('out1').value = `vec![${flat1D}];`;
+
+                    let pairCoords = layers[0].map(s => `(${s.r}, ${s.c})`).join(', ');
+                    document.getElementById('out2').value = `vec![${pairCoords}];`;
+                }
+
+                // グリッド形式 (和集合)
+                let gridStr = "vec![\n";
+                for (let r = 0; r < R; r++) {
+                    let rowStr = "";
+                    for (let c = 0; c < C; c++) {
+                        let isSelected = layers.some(layer => layer.some(x => x.r === r && x.c === c));
+                        rowStr += isSelected ? "#" : ".";
+                    }
+                    gridStr += `  "${rowStr}",\n`;
+                }
+                gridStr += "];";
+                document.getElementById('out3').value = gridStr;
+
             } else {
+                // 標準入力形式 (raw)
                 if (isMultiLayer) {
                     let out1 = [];
                     let out2 = [];
