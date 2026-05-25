@@ -53,7 +53,6 @@
             gap: 5px;
         }
 
-        /* 言語選択はプルダウンで */
         .style-selector select {
             border: 1px solid #90caf9;
             border-radius: 3px;
@@ -115,22 +114,33 @@
             gap: 10px;
         }
 
+        /* グリッド上部の操作パネル（横並び用） */
+        .grid-action-panel {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .history-controls {
+            display: flex;
+            gap: 5px;
+            width: max-content;
+        }
+
+        .history-controls button {
+            padding: 5px 12px;
+            font-size: 13px;
+        }
+
         .layer-controls {
             display: flex;
             align-items: center;
             gap: 8px;
             background: #fff;
-            padding: 8px 12px;
+            padding: 5px 12px;
             border-radius: 6px;
             border: 1px solid #ddd;
             width: max-content;
-        }
-
-        .shortcut-hint {
-            font-size: 11px;
-            color: #666;
-            font-weight: normal;
-            margin-left: 2px;
         }
 
         .grid {
@@ -208,27 +218,9 @@
         </div>
         <button onclick="buildGrid()" class="reset-btn">リセット</button>
 
-        <div class="control-item" style="border-left: 2px solid #ccc; padding-left: 15px;">
-            <button id="undoBtn" onclick="undo()" title="Ctrl+Z">↩ 戻る</button>
-            <button id="redoBtn" onclick="redo()" title="Ctrl+Y">↪ 進む</button>
-        </div>
+        <div style="border-left: 1px solid #ccc; height: 24px; margin: 0 5px;"></div>
 
-        <div class="control-item style-selector">
-            出力スタイル:
-            <label>
-                <input type="radio" name="outStyle" value="code" checked onclick="updateOutputs()">
-                <select id="codeLang"
-                    onchange="document.querySelector('input[value=\'code\']').checked = true; updateOutputs()">
-                    <option value="cpp">C++形式</option>
-                    <option value="py">Python形式</option>
-                    <option value="rust">Rust形式</option>
-                </select>
-            </label>
-            <label><input type="radio" name="outStyle" value="raw" onclick="updateOutputs()"> 標準入力形式</label>
-        </div>
-
-        <div class="control-item"
-            style="background: #e0e0e0; padding: 5px 10px; border-radius: 4px; margin-left: auto;">
+        <div class="control-item" style="background: #e0e0e0; padding: 5px 10px; border-radius: 4px;">
             マス目:
             <input type="range" id="sizeSlider" min="15" max="80" value="35" oninput="updateCellSize(this.value)">
             <span id="sizeValue" style="min-width: 40px; font-family: monospace;">35px</span>
@@ -237,18 +229,39 @@
 
     <div class="container">
         <div class="grid-area">
-            <div class="layer-controls">
-                <span style="font-weight: bold; font-size: 14px;">レイヤー選択:</span>
-                <select id="layerSelect" onchange="changeLayer()" title="レイヤー切り替え ([ ] キー)"
-                    style="padding: 4px; border-radius: 4px; font-weight: bold;"></select>
-                <button onclick="addLayer()" title="レイヤーを追加 (Alt + A)">+</button>
-                <button id="removeLayerBtn" onclick="removeLayer()" title="現在のレイヤーを削除 (Alt + D)"
-                    style="color: #c02020;">-</button>
+            <div class="grid-action-panel">
+                <div class="history-controls">
+                    <button id="undoBtn" onclick="undo()" title="Ctrl+Z">↩ 戻る</button>
+                    <button id="redoBtn" onclick="redo()" title="Ctrl+Y">↪ 進む</button>
+                </div>
+
+                <div class="layer-controls">
+                    <span style="font-weight: bold; font-size: 14px;">レイヤー選択:</span>
+                    <select id="layerSelect" onchange="changeLayer()" title="レイヤー切り替え ([ ] キー)"
+                        style="padding: 4px; border-radius: 4px; font-weight: bold;"></select>
+                    <button onclick="addLayer()" title="レイヤーを追加 (Alt + A)">+</button>
+                    <button id="removeLayerBtn" onclick="removeLayer()" title="現在のレイヤーを削除 (Alt + D)"
+                        style="color: #c02020;">-</button>
+                </div>
             </div>
+
             <div id="grid" class="grid"></div>
         </div>
 
         <div class="output-area" style="flex-grow: 1; max-width: 500px;">
+            <div class="control-item style-selector" style="margin-bottom: 15px; width: max-content;">
+                出力スタイル:
+                <label>
+                    <input type="radio" name="outStyle" value="code" checked onclick="updateOutputs()">
+                    <select id="codeLang"
+                        onchange="document.querySelector('input[value=\'code\']').checked = true; updateOutputs()">
+                        <option value="cpp">C++形式</option>
+                        <option value="py">Python形式</option>
+                        <option value="rust">Rust形式</option>
+                    </select>
+                </label>
+                <label><input type="radio" name="outStyle" value="raw" onclick="updateOutputs()"> 標準入力形式</label>
+            </div>
 
             <div class="output-block">
                 <div class="output-header">
