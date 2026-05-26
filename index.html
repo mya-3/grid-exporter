@@ -170,6 +170,7 @@
         /* 他のレイヤーで選択されたマスのスタイル */
         .cell.other-layer {
             background: #d3d3d3;
+            color: #666;
         }
 
         /* 現在のレイヤーで選択されたマスのスタイル（優先度高） */
@@ -523,14 +524,20 @@
             }
 
             // 他のレイヤーの描画 (薄い灰色)
+            let otherLayerCounts = new Array(R * C).fill(0);
+
             for (let l = 0; l < layers.length; l++) {
                 if (l === currentLayer) continue;
                 layers[l].forEach(s => {
-                    let cellNode = cells[s.r * C + s.c];
-                    if (cellNode) {
-                        cellNode.classList.add('other-layer');
-                    }
+                    otherLayerCounts[s.r * C + s.c]++;
                 });
+            }
+
+            for (let i = 0; i < cells.length; i++) {
+                if (otherLayerCounts[i] > 0) {
+                    cells[i].classList.add('other-layer');
+                    cells[i].innerText = otherLayerCounts[i];
+                }
             }
 
             // 現在のレイヤーの描画 (緑色)
