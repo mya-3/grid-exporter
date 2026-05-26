@@ -2,15 +2,16 @@
 
 グリッドの選択と出力を行うWebツールです。
 
-<img width="530" alt="grid_exporter_language_pulldown" src="https://github.com/user-attachments/assets/6d65bf1b-95f1-4e58-919e-5e7ec66c29a1" />
+<img width="530" alt="grid_exporter_count" src="https://github.com/user-attachments/assets/05cc76f6-1651-48b3-a641-57d4ddd8cdc3" />
 
 ## 主な機能
 
 - グリッドの直感的な編集
   - クリック・ドラッグによる選択
-  - 選択順の可視化
+  - 選択順を数字で表示
 - レイヤーの追加削除
   - 他のレイヤーでの選択は薄い灰色で表示
+  - いくつのレイヤーで選択されているかを数字で表示
 - 複数形式での出力
   - プログラムへの埋め込み形式 / 標準入力形式
     - C++ / Python / Rust
